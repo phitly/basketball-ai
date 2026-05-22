@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment variables — never commit credentials
+.env
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
