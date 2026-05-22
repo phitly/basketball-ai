@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: basketball_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: basketball_analytics
+      POSTGRES_USER: bball_user
+      POSTGRES_PASSWORD: bball_pass   # change before any non-local use
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql  # auto-runs on first start
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bball_user -d basketball_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
