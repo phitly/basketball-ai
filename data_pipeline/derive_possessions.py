@@ -56,8 +56,8 @@ def get_shot_points(description):
          "Green 26' 3PT Pullup Jump Shot (3 PTS)"    → 3
     Falls back to 2 if not found.
     """
-    match = re.search(r'\((\d+) PTS\)', str(description or ''))
-    return int(match.group(1)) if match else 2
+    desc = str(description or '')
+    return 3 if '3PT' in desc else 2
 
 
 def other_team(team_id, home_team_id, away_team_id):
