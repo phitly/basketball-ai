@@ -144,26 +144,100 @@ We split on this, then join on `GAME_ID` to produce one row per game.
 
 ---
 
-## Current State of the Database
+### Script 4: `data_pipeline/ingest_play_events.py`
+
+**What it does:** Loads every play-by-play event for all 11,499 games.
+
+**The challenge:** One API call per game = 11,499 requests. Took ~4 hours to run.
+
+**Key lessons learned:**
+- `PlayByPlayV2` is deprecated — the NBA API returns empty data for it. Had to switch to `PlayByPlayV3` which has a different column structure
+- V3 `clock` format is ISO 8601 (`"PT05M32.00S"`) — had to convert to `"MM:SS"` using regex
+- V3 `personId` sometimes stores a team ID (for jump balls, timeouts) — had to filter out NBA team ID range `1610612737–1610612766` to avoid FK violations
+- Some player IDs in play-by-play aren't in our players table (historical/obscure players) — pre-loaded valid player IDs into a set and filtered against it
+- **Checkpointing is essential** — script checks which games already have events before each call. Stopped and restarted multiple times safely
+
+**Result:** 5,614,774 play-by-play events loaded (23 games retried and recovered)
+
+---
+
+### Script 5: `data_pipeline/ingest_shots.py`
+
+**What it does:** Loads all shot attempts for every team, every season.
+
+**Strategy:** Pull by team + season + season type = 540 API calls. Much faster than per-game.
+
+**Key lessons learned:**
+- Empty DataFrame ≠ failure — teams that didn't make the playoffs return empty data legitimately. Had to distinguish between `None` (real API error, retry) and empty DataFrame (no data, skip)
+- 14 teams miss the playoffs each season × 9 seasons = exactly 126 "empty" combos. This is not an error
+- Persistent timeouts on some large playoff datasets — added retry logic (3 attempts, 5s/10s wait) and increased timeout from 30s to 60s
+- 5 combos remained unresolvable after multiple retries — noted as known gaps, acceptable for a portfolio project
+
+**Result:** 929,164 shots loaded across 414 team/season combinations
+
+---
+
+### Script 6: `data_pipeline/derive_possessions.py`
+
+**What it does:** Computes possessions from raw play-by-play events. No API calls.
+
+**Why this is different:** The NBA doesn't provide possession data through any endpoint. You derive it yourself by reading the sequence of events and applying basketball rules.
+
+**The state machine — 4 rules:**
+```
+Made Shot         → close possession (record points), other team gets ball
+Missed Shot       → track which team just shot (for rebound logic)
+Rebound (same team)   → offensive rebound → same possession continues
+Rebound (diff team)   → defensive rebound → close possession, new team gets ball
+Turnover          → close possession (0 points), other team gets ball
+End Period        → close any open possession
+```
+
+**Example from 2016 Finals Game 7 (first 6 events):**
+```
+1. Jump Ball    → skipped
+2. Missed Shot  → Cavs miss, last_shot_team = Cavs
+3. Rebound      → Warriors (different team) → defensive rebound → Warriors possession
+4. Missed Shot  → Warriors miss, last_shot_team = Warriors
+5. Rebound      → Cavs (different team) → defensive rebound → Cavs possession
+6. Made Shot    → Cavs score → possession closed (2 pts) → Warriors possession starts
+```
+
+**Known simplifications (documented, not bugs):**
+- Free throws are skipped — treated as possession continuations
+- Technical fouls and mid-game jump balls are ignored
+- Slightly undercounts possessions (~170/game vs ~180-190 in reality) due to these simplifications
+
+**Result:** 1,955,234 possessions derived — 170 per game average
+
+---
+
+## Final State of the Database
 
 ```
-teams        →  30 rows
-players      →  5,103 rows
-games        →  11,499 rows
-play_events  →  0 rows  (next session)
-shots        →  0 rows  (next session)
-possessions  →  0 rows  (derived — later)
-lineups      →  0 rows  (derived — later)
-pipeline_runs→  0 rows  (to be wired in)
+teams        →      30 rows   ✅
+players      →   5,103 rows   ✅
+games        →  11,499 rows   ✅
+play_events  → 5,614,774 rows ✅
+shots        →   929,164 rows ✅  (5 combos unresolvable — noted)
+possessions  → 1,955,234 rows ✅  (derived — no API)
+lineups      →       0 rows   ⬜  (Phase 2)
+pipeline_runs→       0 rows   ⬜  (Phase 2)
 ```
 
 ---
 
-## What's Next (Session 02)
+## What's Next (Phase 2)
 
-- **Play-by-play ingest** — one API call per game = ~11,499 requests. Needs rate limiting and checkpointing so it can resume if interrupted
-- **Shots ingest** — `ShotChartDetail` endpoint, one call per team per season
-- **Possession derivation** — compute possessions from raw play events
+Build the analytics API — FastAPI endpoints that query this database and return meaningful basketball metrics. Start a new chat for Phase 2.
+
+Endpoints to build:
+- `GET /games` — list games with scores
+- `GET /games/{id}/summary` — game summary with key stats
+- `GET /player/{id}/efficiency` — player efficiency metrics (TS%, eFG%, Usage Rate)
+- `GET /team/{id}/lineup-analysis` — lineup plus/minus
+- `GET /possessions/{game_id}` — possession breakdown
+- `GET /momentum/{game_id}` — scoring runs and momentum shifts
 
 ---
 
@@ -176,10 +250,13 @@ docker compose up -d
 # Activate your virtual environment (do this every time you open a terminal)
 source venv/Scripts/activate
 
-# Run ingest scripts
+# Run all ingest scripts in order
 python data_pipeline/ingest_teams.py
 python data_pipeline/ingest_players.py
 python data_pipeline/ingest_games.py
+python data_pipeline/ingest_play_events.py
+python data_pipeline/ingest_shots.py
+python data_pipeline/derive_possessions.py
 
 # Check what's in the DB
 python test_connection.py
