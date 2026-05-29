@@ -81,7 +81,7 @@ def get_momentum(game_id: str, db: Session = Depends(get_db)):
         for p in possessions
     ]
 
-    windows = build_momentum_windows(rows)
+    windows = build_momentum_windows(rows, home_team_id=game.home_team_id)
 
     return MomentumOut(
         game_id=game_id,

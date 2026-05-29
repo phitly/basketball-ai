@@ -338,6 +338,7 @@ class MomentumWindow:
 
 def build_momentum_windows(
     possession_rows: list[dict],
+    home_team_id: int,
     window_size: int = 5,
 ) -> list[MomentumWindow]:
     """
@@ -379,7 +380,9 @@ def build_momentum_windows(
         teams = list(by_period[period].keys())
         if len(teams) < 2:
             continue
-        t1, t2 = teams[0], teams[1]
+        # Always assign home/away correctly regardless of dict insertion order
+        t1 = home_team_id if home_team_id in teams else teams[0]
+        t2 = next(t for t in teams if t != t1)
         d1, d2 = by_period[period][t1], by_period[period][t2]
         windows.append(MomentumWindow(
             period=period,
