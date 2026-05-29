@@ -22,7 +22,7 @@ def get_lineup_analysis(
     team_id: int,
     game_id: str | None = Query(None, description="Scope to a single game"),
     season: str | None = Query(None, description="Filter by season, e.g. '2023-24'"),
-    min_possessions: int = Query(5, ge=1, description="Minimum possessions to include a lineup"),
+    min_possessions: int = Query(0, ge=0, description="Minimum possessions to include a lineup"),
     db: Session = Depends(get_db),
 ):
     """
