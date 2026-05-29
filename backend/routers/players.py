@@ -60,7 +60,7 @@ def get_player_efficiency(
     ft_stmt = (
         select(func.count())
         .where(PlayEvent.player1_id == player_id)
-        .where(PlayEvent.event_type == "FREE_THROW")
+        .where(PlayEvent.event_type == "Free Throw")
     )
     if season:
         from models import Game as G
@@ -69,7 +69,7 @@ def get_player_efficiency(
             .select_from(PlayEvent)
             .join(G, PlayEvent.game_id == G.game_id)
             .where(PlayEvent.player1_id == player_id)
-            .where(PlayEvent.event_type == "FREE_THROW")
+            .where(PlayEvent.event_type == "Free Throw")
             .where(G.season == season)
         )
     fta = db.scalar(ft_stmt) or 0
@@ -79,8 +79,8 @@ def get_player_efficiency(
         select(func.count())
         .select_from(PlayEvent)
         .where(PlayEvent.player1_id == player_id)
-        .where(PlayEvent.event_type == "FREE_THROW")
-        .where(PlayEvent.event_subtype.ilike("%made%"))
+        .where(PlayEvent.event_type == "Free Throw")
+        .where(PlayEvent.description.notlike("MISS%"))
     )
     if season:
         from models import Game as G2
@@ -89,8 +89,8 @@ def get_player_efficiency(
             .select_from(PlayEvent)
             .join(G2, PlayEvent.game_id == G2.game_id)
             .where(PlayEvent.player1_id == player_id)
-            .where(PlayEvent.event_type == "FREE_THROW")
-            .where(PlayEvent.event_subtype.ilike("%made%"))
+            .where(PlayEvent.event_type == "Free Throw")
+            .where(PlayEvent.description.notlike("MISS%"))
             .where(G2.season == season)
         )
     ft_made = db.scalar(ft_made_stmt) or 0
@@ -104,7 +104,7 @@ def get_player_efficiency(
         select(func.count())
         .select_from(PlayEvent)
         .where(PlayEvent.player1_id == player_id)
-        .where(PlayEvent.event_type == "TURNOVER")
+        .where(PlayEvent.event_type == "Turnover")
     )
     if season:
         from models import Game as G3
@@ -113,7 +113,7 @@ def get_player_efficiency(
             .select_from(PlayEvent)
             .join(G3, PlayEvent.game_id == G3.game_id)
             .where(PlayEvent.player1_id == player_id)
-            .where(PlayEvent.event_type == "TURNOVER")
+            .where(PlayEvent.event_type == "Turnover")
             .where(G3.season == season)
         )
     turnovers = db.scalar(tov_stmt) or 0

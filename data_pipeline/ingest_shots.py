@@ -87,6 +87,7 @@ def extract_shots(team_id, season, season_type, retries=3):
                 player_id=0,
                 season_nullable=season,
                 season_type_all_star=season_type,
+                context_measure_simple='FGA',   # FGA = all attempts; default 'FGM' = made only
                 timeout=60
             )
             df = endpoint.get_data_frames()[0]
